@@ -307,7 +307,6 @@ def iteration(seed, log, num_epochs: int, recon_loss_weight: float = 0.0):
         torch.cuda.empty_cache()
 
 
-titles = ('tr_H_sim', 'tr_H_est', 'var_exp', 'variance_tr_H_sim', 'variance_tr_H_est')
 for num_epochs in [1, 5]:
     for recon_loss_weight in [1.0, 0.0]:
         logname = f'log-linear_tranform_variance3-{num_epochs}-{recon_loss_weight}'
