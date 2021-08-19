@@ -1,6 +1,6 @@
 # Heritability Maximizing Dimensionality Reduction
 
-## The model
+## The Model
 - N individuals, indexed by i
 - M variants, indexed by j
 - K phenotypes, indexed by k
@@ -11,4 +11,4 @@
 - X<sub>ij</sub> ~ Binomial(2, p)
 - β<sub>jk</sub> ~ Normal(0, h<sup>2</sup> / M)
 - 𝓁<sub>k</sub> ~ X<sub>ij</sub> · β<sub>jk</sub> + Normal(0, √(1-h<sup>2</sup>))
-- y<sub>k</sub> = GAN(𝓁<sub>k</sub>)
+- y<sub>k</sub> = f(𝓁<sub>k</sub>), where f is some non-linear function
