@@ -28,7 +28,7 @@ hl.init(spark_conf={'spark.driver.memory': '32g'}, tmp_dir=tmp, local_tmpdir=tmp
 
 N = 60000                     # number of samples
 M = 10000                     # number of variants
-P = 3                         # size of intermediate phenotypes
+K = 3                         # size of intermediate phenotypes
 
 nz = 10                       # The input size of the GAN
 ngf = 64                      # The size of feature maps in the GAN's generator
@@ -138,7 +138,7 @@ def generate_genotypes_and_simulated_latent_phenotypes(scratch):
     mt = mt.checkpoint(scratch + '/g1.mt')
     count = mt.count()
     assert count == (M, N), count
-    mt = hl.experimental.ldscsim.simulate_phenotypes(mt, mt.GT, [0.5 for phenotype_index in range(P)])
+    mt = hl.experimental.ldscsim.simulate_phenotypes(mt, mt.GT, [0.5 for phenotype_index in range(K)])
     mt = mt.checkpoint(scratch + '/g2.mt')
     assert mt.count() == (M, N)
     return mt
@@ -149,10 +149,10 @@ def generate_observed_phenotypes(netG10, mt, scratch):
     os.makedirs(observed_phenotypes_folder + '/group1/', exist_ok=True)
 
     phenos = mt.y.collect()
-    phenos = torch.tensor(phenos).reshape(N, P).to(device)
+    phenos = torch.tensor(phenos).reshape(N, K).to(device)
 
     # Recall: A sends 3-dimensional vectors to 10-dimensional vectors
-    A = torch.randn(P, nz).to(device) / math.sqrt(P)
+    A = torch.randn(K, nz).to(device) / math.sqrt(K)
 
     phenos = phenos @ A
     phenos = phenos.reshape([N, nz, 1, 1])
@@ -197,20 +197,21 @@ def mt_to_numpy(mt, scratch: str):
 
 
 def trace_heritability(phenos, normalized_g, return_qt_q=False):
-    N, P = phenos.shape
+    N, K = phenos.shape
     M, _ = normalized_g.shape
 
     q, _ = torch.linalg.qr(phenos)
     q = normalize_cols(q)
 
     betahat = normalized_g @ q / (N - 1)
-    tr_H = betahat.square().sum() - P * M / N
+    tr_H = betahat.square().sum() - K * M / N
     if return_qt_q:
         return (q.T @ q / (N - 1), tr_H)
     return tr_H
 
 
 def train_autoencoder(dataloader: torch.utils.data.DataLoader,
+
                       g: torch.Tensor,
                       num_epochs: int,
                       recon_loss_weight: float = 1.0):
@@ -241,7 +242,7 @@ def train_autoencoder(dataloader: torch.utils.data.DataLoader,
 def variance_explained(A: torch.Tensor, B: torch.Tensor):
     A_q, _ = torch.linalg.qr(A)
     B_q, _ = torch.linalg.qr(B)
-    return torch.square(torch.norm(A_q.T @ B_q, 'fro')) / P
+    return torch.square(torch.norm(A_q.T @ B_q, 'fro')) / K
 
 
 def tr_H_variance_after_linear_transformation(A: torch.Tensor, g: torch.Tensor, draws=100):
@@ -249,15 +250,15 @@ def tr_H_variance_after_linear_transformation(A: torch.Tensor, g: torch.Tensor, 
         trace_heritability(
             A @ torch.tensor(
                 np.random.multivariate_normal(
-                    np.array([0] * P * P),
-                    np.identity(P * P)).reshape(P, P)).type(torch.float32).to(device),
+                    np.array([0] * K * K),
+                    np.identity(K * K)).reshape(K, K)).type(torch.float32).to(device),
             g).item()
         for _ in range(draws)])
 
 
 def latent_phenotypes_from_model_and_observed(model: Autoencoder, dataloader: torch.utils.data.DataLoader):
     return torch.cat(tuple([
-        latent.reshape(1, P)
+        latent.reshape(1, K)
         for (batch, _) in tqdm(dataloader, desc='generate latent phenos')
         for latent in model.encoder(batch.to(device))])).to(device)
 
